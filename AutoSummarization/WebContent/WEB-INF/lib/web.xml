@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://java.sun.com/xml/ns/javaee" xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd" id="WebApp_ID" version="2.5">
+
+<!-- 配置当前WEB应用的初始化参数 (可以写好多个，是全局的)-->
+<context-param>
+<param-name>driver</param-name>
+<param-value>com.mysql.jdbc.Driver</param-value>
+</context-param>
+
+<context-param>
+<param-name>jdbcUrl</param-name>
+<param-value>jdbc:mysql:///test</param-value>
+</context-param>
+
+
+<!-- 配置和映射Servlet(一定要有的) -->
+<!--
+<servlet>
+<servlet-name>HServletttt</servlet-name>
+<servlet-class>com.lanqiao.javatest.SecondServlet</servlet-class>
+<load-on-startup>5</load-on-startup>
+</servlet>
+-->
+<!-- 映射 -->
+<!--
+<servlet-mapping>
+<servlet-name>HServletttt</servlet-name>
+<url-pattern>/hello</url-pattern>
+</servlet-mapping>
+-->
+
+<servlet>
+<servlet-name>TextTest</servlet-name>
+<servlet-class>TextTest</servlet-class>
+
+<!-- 配置Servlet的初始化参数 (局部的)-->
+<!-- 可以指定Servlet创建的时机 -->
+<load-on-startup>2</load-on-startup>
+
+</servlet>
+
+</web-app>
