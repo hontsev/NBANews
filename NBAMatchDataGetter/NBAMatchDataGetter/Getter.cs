@@ -71,9 +71,9 @@ namespace NBAMatchDataGetter
                 MySqlHelper.Execute(string.Format("INSERT INTO nbamatch.team(id,name) VALUES('{0}','{1}')", hostid, hostname));
             }
 
-            if (!MySqlHelper.ExistData(string.Format("SELECT id FROM nbamatch.match WHERE begintime='{0}' and guestteam='{1}' and hostteam='{2}' ", begintime, guestid, hostid)))
+            if (!MySqlHelper.ExistData(string.Format("SELECT id FROM nbamatch.match WHERE begin_time='{0}' and guest_team='{1}' and host_team='{2}' ", begintime, guestid, hostid)))
             {
-                MySqlHelper.Execute(string.Format("INSERT INTO nbamatch.match(id,beginTime,guestteam,hostteam,guestscore,hostscore) VALUES('{0}','{1}','{2}','{3}','{4}','{5}')", 
+                MySqlHelper.Execute(string.Format("INSERT INTO nbamatch.match(id,begin_time,guest_team,host_team,guest_score,host_score) VALUES('{0}','{1}','{2}','{3}','{4}','{5}')", 
                     id,begintime, guestid, hostid, gscore, hscore));
             }
 
@@ -147,8 +147,16 @@ namespace NBAMatchDataGetter
         public static void getData(string id)
         {
             //id = "2017103005";
-            saveMatchInfo(id);
-            saveEventInfo(id);
+            try
+            {
+                saveMatchInfo(id);
+                saveEventInfo(id);
+            }
+            catch
+            {
+
+            }
+
         }
     }
 }

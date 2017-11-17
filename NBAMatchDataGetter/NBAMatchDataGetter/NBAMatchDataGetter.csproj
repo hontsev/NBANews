@@ -47,6 +47,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="QuarterGenerater.cs" />
+    <Compile Include="Generater.cs" />
     <Compile Include="Getter.cs" />
     <Compile Include="MySqlHelper.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
