@@ -8,6 +8,7 @@ using System.IO;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
 using System.Data;
+using HtmlAgilityPack;
 
 namespace NBAMatchDataGetter
 {
@@ -142,6 +143,36 @@ namespace NBAMatchDataGetter
                 }
                 
             }
+        }
+
+        public static List<string> getMatchIDs()
+        {
+
+            string url = "http://nba.sports.sina.com.cn/match_result.php";
+
+            var reslist = new List<string>();
+            string html = WebHelper.getData(url, Encoding.UTF8);
+            Regex reg = new Regex("href=\"look_scores.php?id=([0-9]*?)\"");
+            MatchCollection res=reg.Matches(html);
+            if (res.Count > 0)
+            {
+                foreach(var v in res)
+                {
+                    reslist.Add(v.ToString());
+                }
+            }
+            //HtmlDocument hdoc = new HtmlDocument();
+            //hdoc.LoadHtml(html);
+
+            ////统计数值
+            //try
+            //{
+            //    string gdp = hdoc.DocumentNode.SelectSingleNode("//*[@class=\"op_gdp_subtitle\"]").InnerText;
+            //    reslist.Add(gdp);
+            //}
+            //catch { }
+
+            return reslist;
         }
 
         public static void getData(string id)

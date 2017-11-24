@@ -4,6 +4,7 @@ using System.Data;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using HtmlAgilityPack;
 
 namespace NBAMatchDataGetter
 {
@@ -41,8 +42,157 @@ namespace NBAMatchDataGetter
     {
         Dictionary<string, List<string>> templates;
         List<EventInfo> data;
-        List<QuarterGenerater> quarters;
-        MatchInfo info;
+        public List<QuarterGenerater> quarters;
+        public MatchInfo info;
+
+
+        
+        public int[] getData()
+        {
+            List<int> res = new List<int>();
+
+            foreach(var q in quarters)
+            {
+                foreach(var s in q.scorechange)
+                {
+                    res.Add(s);
+                }
+            }
+
+            return res.ToArray();
+        }
+
+        public int[] getCutQuarter()
+        {
+            List<int> res = new List<int>();
+
+            int begin = 0;
+            foreach (var q in quarters)
+            {
+                begin += q.scorechange.Length;
+                res.Add(begin);
+            }
+
+            return res.ToArray();
+        }
+
+        public int[] getCutSlice1()
+        {
+            List<int> res = new List<int>();
+
+            int begin = 0;
+            foreach (var q in quarters)
+            {
+                foreach (var s in q.orislices)
+                {
+                    res.Add(s.endIndex + begin);
+                }
+                begin += q.scorechange.Length;
+            }
+
+            return res.ToArray();
+        }
+
+        public int[] getCutSlice2()
+        {
+            List<int> res = new List<int>();
+
+            int begin = 0;
+            foreach (var q in quarters)
+            {
+                foreach(var s in q.slices)
+                {
+                    res.Add(s.endIndex + begin);
+                }
+                begin += q.scorechange.Length;
+            }
+
+            return res.ToArray();
+        }
+
+
+        public int[] getDataByTime()
+        {
+            int[] res = new int[12 * 60 * 4+1];
+
+            int begin = 0;
+            int lasttime = 0;
+            foreach (var q in quarters)
+            {
+                for(int i = 0; i < q.scorechange.Length; i++)
+                {
+                    int timeindex=(int)(QuarterGenerater.timeSub("12:00", q.data[i].gameTime).TotalSeconds)+begin;
+                    for(int j= lasttime+1; j <= timeindex; j++)
+                    {
+                        res[j] = q.scorechange[i];
+                    }
+                    lasttime = timeindex;
+                }
+                begin += 12 * 60;
+            }
+
+            return res.ToArray();
+        }
+
+
+        public int[] getCutQuarterByTime()
+        {
+            return new int[] { 12 * 60, 12 * 60 * 2, 12 * 60 * 3 };
+        }
+
+        public int[] getCutSlice1ByTime()
+        {
+            List<int> res = new List<int>();
+
+            foreach (var q in quarters)
+            {
+                foreach (var s in q.orislices)
+                {
+                    res.Add((int)QuarterGenerater.timeSub("12:00", q.data[s.endIndex].gameTime).TotalSeconds + (q.quarter - 1) * 12 * 60);
+                }
+            }
+
+            return res.ToArray();
+        }
+
+        public int[] getCutSlice2ByTime()
+        {
+            List<int> res = new List<int>();
+
+            foreach (var q in quarters)
+            {
+                foreach (var s in q.slices)
+                {
+                    res.Add((int)QuarterGenerater.timeSub("12:00", q.data[s.endIndex].gameTime).TotalSeconds + (q.quarter - 1) * 12 * 60);
+                   // res.Add(s.endIndex + begin);
+                }
+            }
+
+            return res.ToArray();
+        }
+
+        public int[] getEnergyByTime()
+        {
+            int[] res = new int[12 * 60 * 4 + 1];
+
+            int begin = 0;
+            int lasttime = 0;
+            foreach (var q in quarters)
+            {
+                for (int i = 0; i < q.slices.Count; i++)
+                {
+                    int timeindex = (int)(QuarterGenerater.timeSub("12:00", q.data[i].gameTime).TotalSeconds) + begin;
+                    for (int j = lasttime + 1; j <= timeindex; j++)
+                    {
+                        res[j] = q.scorechange[i];
+                    }
+                    lasttime = timeindex;
+                }
+                begin += 12 * 60;
+            }
+            return res.ToArray();
+        }
+
 
         public Generater()
         {
@@ -199,19 +349,59 @@ namespace NBAMatchDataGetter
             return tmp;
         }
 
-        public string generate(int quarter)
+        private string gPerformance(string teamid,string team)
         {
-            StringBuilder output = new StringBuilder();
+            Dictionary<string,Performance> pers=new Dictionary<string, Performance>();
+            foreach(var q in quarters)
+            {
+                var tmp=q.getPerformance(teamid, team, 0, q.data.Count - 1);
+                foreach(var p in tmp)
+                {
+                    if (!pers.ContainsKey(p.player)) pers[p.player] = p;
+                    else
+                    {
+                        pers[p.player].fault += p.fault;
+                        pers[p.player].foul += p.foul;
+                        pers[p.player].rebound += p.rebound;
+                        pers[p.player].score1 += p.score1;
+                        pers[p.player].score2 += p.score2;
+                        pers[p.player].score3 += p.score3;
+                        pers[p.player].shoot2 += p.shoot2;
+                        pers[p.player].shoot3 += p.shoot3;
+                    }
+                }
+            }
+
+            List<Performance> perres = pers.Values.ToList();
+            perres.Sort();
+
+            string res = string.Format("{0}：",team);
+
+            for(int i = 0; i < 5; i++)
+            {
+                var player = perres[i];
+                if (player.score() < 5) continue;
+                res += player.player;
+                res += string.Format("{0}分", player.score());
+                if (player.rebound > 3) res += string.Format("{0}个篮板，", player.rebound);
+                else res += "，";
+            }
+            res = res.Substring(0, res.Length - 1) + "。";
 
             
-
-            return output.ToString();
+            return res;
         }
 
         public string generateHead()
         {
-            string template = "{时间}{场次情况}{比分情况}";
-            template=template.Replace("{时间}",gTime());
+            string template = "{时间}{场次情况}{比分情况}\r\n{胜队表现}\r\n{败队表现}";
+            string ateamid = (info.hscore > info.gscore ? info.hid : info.gid);
+            string dteamid= (info.hscore > info.gscore ? info.gid : info.hid);
+            string ateam= (info.hscore > info.gscore ? info.hname : info.gname);
+            string dteam = (info.hscore > info.gscore ? info.gname : info.hname);
+            template = template.Replace("{胜队表现}", gPerformance(ateamid,ateam));
+            template = template.Replace("{败队表现}", gPerformance(dteamid, dteam));
+            template = template.Replace("{时间}", gTime());
             template = template.Replace("{场次情况}", gMatchEx());
             template = template.Replace("{比分情况}", gMatchResult());
 
@@ -263,7 +453,7 @@ namespace NBAMatchDataGetter
                 else
                 {
                 // one quarter
-                output += generate(quarter)+ "\r\n";
+                output += quarters[quarter].generate()+ "\r\n";
                 }
                 
             //}

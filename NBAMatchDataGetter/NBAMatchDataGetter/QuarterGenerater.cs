@@ -22,8 +22,8 @@ namespace NBAMatchDataGetter
         public int beginIndex;
         public int endIndex;
         public bool increase;
-        public int energy;
-        public Slice(int bindex, int eindex, bool inc,int engy)
+        public double energy;
+        public Slice(int bindex, int eindex, bool inc, double engy)
         {
             beginIndex = bindex;
             endIndex = eindex;
@@ -32,7 +32,7 @@ namespace NBAMatchDataGetter
         }
     }
 
-    class Performance:IComparable<Performance>
+    public class Performance:IComparable<Performance>
     {
        
 
@@ -68,13 +68,14 @@ namespace NBAMatchDataGetter
         }
     }
 
-    class QuarterGenerater
+    public class QuarterGenerater
     {
         Dictionary<string, List<string>> templates;
-        List<EventInfo> data;
-        List<Slice> slices;
-        int[] scorechange;
-        int quarter;
+        public List<EventInfo> data;
+        public List<Slice> slices;
+        public List<Slice> orislices;
+        public int[] scorechange;
+        public int quarter;
         //string template = "";
         MatchInfo info;
         Random ran = new Random();
@@ -139,16 +140,17 @@ namespace NBAMatchDataGetter
         private void getSlice()
         {
             slices = new List<Slice>();
+            orislices = new List<Slice>();
 
             bool lastIncrase=true;
             int lastIndex = 0;
             bool begin = true;
-            int energy = 0;
+            double energy = 0;
             for (int i = 1; i < scorechange.Length; i++)
             {
                 
                 int thisChange = scorechange[i]-scorechange[i-1];
-                energy += Math.Abs(thisChange);
+                energy += Math.Pow(thisChange,2);
                 if (thisChange == 0) { continue; }
                 else if (begin) { begin = false; lastIncrase = thisChange > 0; continue; }
                 if (thisChange > 0)
@@ -179,26 +181,42 @@ namespace NBAMatchDataGetter
             // last part
             if (lastIndex < data.Count - 1)
                 slices.Add(new Slice(lastIndex, data.Count - 1, lastIncrase,energy));
+
+            foreach (var s in slices) orislices.Add(s);
         }
 
         private void resetSlice2()
         {
             List<Slice> newslices = new List<Slice>();
-
-            int beginindex = slices[0].beginIndex;
+            List<double> ep = new List<double>();
+            int beginindex = 1;
             int endindex = slices[0].endIndex;
-            int energy = slices[0].energy;
+            double energy = slices[0].energy;
             bool increase = slices[0].increase;
-            //bool 
+
+            for(int i = 1; i < slices.Count; i++)
+            {
+                Slice tslice = slices[i];
+                TimeSpan ttime2 = timeSub(data[tslice.beginIndex - 1].gameTime, data[tslice.endIndex].gameTime);
+                double energyp = (tslice.energy) / (ttime2.TotalMinutes);
+                ep.Add(energyp);
+            }
+
             for (int i = 1; i < slices.Count - 1; i++)
             {
                 Slice tslice = slices[i];
-                TimeSpan ttime1 = timeSub(data[beginindex].gameTime, data[tslice.endIndex].gameTime);
-                TimeSpan ttime2 = timeSub(data[tslice.beginIndex].gameTime, data[tslice.endIndex].gameTime);
+                //已merge部分长度
+                TimeSpan ttime1 = timeSub(data[beginindex-1].gameTime, data[tslice.endIndex].gameTime);
+                //当前段长度
+                TimeSpan ttime2 = timeSub(data[tslice.beginIndex-1].gameTime, data[tslice.endIndex].gameTime);
                 bool merge = true;
                 if (increase != tslice.increase)
                 {
-                    if (ttime2.TotalMinutes < 0.5 || tslice.energy < 5)
+                    
+                    double energyp = (tslice.energy) / (ttime2.TotalMinutes);
+                    
+                    //if (ttime2.TotalMinutes < 0.2 || energyp < 20)
+                    if (ttime1.TotalMinutes < 0.3 || ttime2.TotalMinutes < 0.5 || tslice.energy < 10)
                     {
                         merge = true;
                     }
@@ -227,7 +245,10 @@ namespace NBAMatchDataGetter
             }
             // add last part
             if (endindex < slices[slices.Count - 1].endIndex)
-                newslices.Add(new Slice(beginindex, data.Count - 1, (data[slices[slices.Count - 1].endIndex].hscore - data[slices[slices.Count - 1].endIndex].gscore) - (data[beginindex].hscore - data[beginindex].gscore) >= 0, energy));
+                newslices.Add(new Slice(
+                    beginindex, data.Count - 1, 
+                    (data[slices[slices.Count - 1].endIndex].hscore - data[slices[slices.Count - 1].endIndex].gscore) - (data[beginindex].hscore - data[beginindex].gscore) >= 0, 
+                    energy));
 
             slices = newslices;
         }
@@ -239,7 +260,7 @@ namespace NBAMatchDataGetter
             int beginindex = slices[0].beginIndex;
             int endindex = slices[0].endIndex;
             bool findIncrease = slices[0].increase;
-            int energy = slices[0].energy;
+            double energy = slices[0].energy;
             for (int i = 1; i < slices.Count - 1; i++)
             {
                 if (slices[i].increase == findIncrease)
@@ -388,7 +409,7 @@ namespace NBAMatchDataGetter
         /// <param name="beginIndex"></param>
         /// <param name="endIndex"></param>
         /// <returns></returns>
-        private List<Performance> getPerformance(string teamid,string team,int beginIndex,int endIndex)
+        public List<Performance> getPerformance(string teamid,string team,int beginIndex,int endIndex)
         {
             Dictionary<string, Performance> p = new Dictionary<string, Performance>();
 
@@ -397,6 +418,7 @@ namespace NBAMatchDataGetter
                 if (data[i].teamid == teamid)
                 {
                     string player= getPlayer(data[i]);
+                    if (string.IsNullOrWhiteSpace(player)) continue;
                     Performance pf;
                     if (p.ContainsKey(player))
                     {
@@ -449,13 +471,25 @@ namespace NBAMatchDataGetter
             return res;
         }
 
+        public static string gTimeSub(string time1,string time2)
+        {
+            TimeSpan ts = timeSub(time1, time2);
+            if (ts.Minutes >= 1)
+            {
+                if(ts.Seconds>20) return string.Format("{0}分{1}秒", ts.Minutes, ts.Seconds);
+                else return string.Format("{0}分钟", ts.Minutes);
+            }
+                
+            else return string.Format("{0}秒", ts.Seconds);
+        }
+
         /// <summary>
         /// 计算时间差
         /// </summary>
         /// <param name="time1"></param>
         /// <param name="time2"></param>
         /// <returns></returns>
-        private TimeSpan timeSub(string time1, string time2)
+        public static TimeSpan timeSub(string time1, string time2)
         {
             DateTime dt1 = DateTime.Parse("1:" + time1.Trim());
             DateTime dt2 = DateTime.Parse("1:" + time2.Trim());
@@ -697,6 +731,14 @@ namespace NBAMatchDataGetter
             return res;
         }
 
+        private string gScore(int num)
+        {
+            if (num == 0) return "一分未得";
+            else if (num < 5) return string.Format("仅得{0}分", num);
+            else if (num > 20) return string.Format("狂砍{0}分", num);
+            else return string.Format("连得{0}分", num);
+        }
+
         /// <summary>
         /// 生成某一节的节内情况描述
         /// </summary>
@@ -712,6 +754,8 @@ namespace NBAMatchDataGetter
                 string dteam;
                 string aid;
                 string did;
+                string begintime= data[slices[i].beginIndex].gameTime;
+                string endtime= data[slices[i].endIndex].gameTime;
                 if (slices[i].increase)
                 {
                     //报导主队
@@ -776,14 +820,18 @@ namespace NBAMatchDataGetter
                     tmp = getTemplate("{info-draw}");
                     //tmp = "双方打得相当胶着, ";
                 }
+                tmp = tmp.Replace("{时间}", gTimeSub(begintime, endtime));
+                tmp = tmp.Replace("{开始时刻}", gTimeSpan(begintime));
+                tmp = tmp.Replace("{结束时刻}", gTimeSpan( endtime));
+                tmp = tmp.Replace("{节名}", gQuarter());
                 tmp = tmp.Replace("{领先队}", ateam);
                 tmp = tmp.Replace("{落后队}", dteam);
-                tmp = tmp.Replace("{领先球员1}", gNickName(aper[0].player));
+                if (aper.Count >= 1) tmp = tmp.Replace("{领先球员1}", gNickName(aper[0].player));
                 if (aper.Count >= 2) tmp = tmp.Replace("{领先球员2}", gNickName(aper[1].player));
                 if (aper.Count >= 3) tmp = tmp.Replace("{领先球员3}", gNickName(aper[2].player));
                 if (aper.Count >= 4) tmp = tmp.Replace("{领先球员4}", gNickName(aper[3].player));
                 if (aper.Count >= 5) tmp = tmp.Replace("{领先球员5}", gNickName(aper[4].player));
-                tmp = tmp.Replace("{落后球员1}", gNickName(dper[0].player));
+                if (dper.Count >= 1) tmp = tmp.Replace("{落后球员1}", gNickName(dper[0].player));
                 if (dper.Count >= 2) tmp = tmp.Replace("{落后球员2}", gNickName(dper[1].player));
                 if (dper.Count >= 3) tmp = tmp.Replace("{落后球员3}", gNickName(dper[2].player));
                 if (dper.Count >= 4) tmp = tmp.Replace("{落后球员4}", gNickName(dper[3].player));
@@ -791,8 +839,10 @@ namespace NBAMatchDataGetter
                 tmp = tmp.Replace("{分数比}", string.Format("{0}-{1}", dscore2, ascore2));
                 tmp = tmp.Replace("{得分比}", string.Format("{0}-{1}", ascore2-ascore1, dscore2-dscore1));
                 tmp = tmp.Replace("{落后得分比}", string.Format("{0}-{1}", dscore2 - dscore1,ascore2 - ascore1 ));
-                tmp = tmp.Replace("{领先分数}", string.Format("{0}分", ascore2 - dscore2));
+                tmp = tmp.Replace("{领先分数}", string.Format("{0}分",ascore2 - dscore2));
                 tmp = tmp.Replace("{落后分数}", string.Format("{0}分", dscore2 - ascore2));
+                tmp = tmp.Replace("{领先得分}", gScore(ascore2 - ascore1));
+                tmp = tmp.Replace("{落后得分}", gScore(dscore2 - dscore1));
                 tmp = tmp.Replace("{反超情形}", gFocus(aid, ateam, i));
                 tmp = tmp.Replace("{领先表现}", gPerformance(aper, 2));
                 tmp = tmp.Replace("{落后表现}", gPerformance(dper, 2));
