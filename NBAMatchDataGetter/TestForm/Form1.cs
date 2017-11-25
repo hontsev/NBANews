@@ -102,7 +102,7 @@ namespace TestForm
                 }
             }
 
-            
+
             res = gen.getCutSlice1ByTime();
             for (int i = 0; i < res.Length; i++)
             {
